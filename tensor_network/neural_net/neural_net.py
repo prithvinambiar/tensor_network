@@ -10,16 +10,17 @@ def initialize_bias(output):
     return tf.Variable(tf.truncated_normal([output]))
 
 
-def initialize_network(input_count, output_count, list_of_neurons):
+def initialize_network(input_count, list_of_neurons):
     list1 = [input_count] + list_of_neurons
-    list2 = list_of_neurons + [output_count]
+    # list2 = list_of_neurons + [output_count]
+    list2 = list_of_neurons
 
     def func(d): (initialize_weight(d[0], d[1]), initialize_bias(d[1]))
     return map(func, list(zip(list1, list2)))
 
 
-def tensor_network(first_layer_input, last_layer_output, list_of_neurons):
-    return initialize_network(first_layer_input, last_layer_output, list_of_neurons)
+def tensor_network(first_layer_input, list_of_neurons):
+    return initialize_network(first_layer_input, list_of_neurons)
 
 
 def evaluate_network(network, input_data):
@@ -36,7 +37,7 @@ def run_feed_forward_neural_net(train_input_data, train_output_data, neurons_lis
     (_, number_of_output) = np.shape(train_output_data)
     x = tf.placeholder(tf.float32, [None, number_of_features])
     y_ = tf.placeholder(tf.float32, [None, number_of_output])
-    network = list(tensor_network(number_of_features, number_of_output, neurons_list))
+    network = list(tensor_network(number_of_features, neurons_list))
     y = tf.nn.sigmoid(evaluate_network(network, x))
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
