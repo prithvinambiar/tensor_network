@@ -34,7 +34,8 @@ setup(
     author="Prithvi Nambiar",
     author_email='prithvinambiar@gmail.com',
     url='https://github.com/prithvinambiar/tensor_network',
-    packages=find_packages(include=['tensor_network']),
+    # packages=find_packages(include=['tensor_network']),
+    packages=find_packages(exclude=["tests.*", "tests"]),
     entry_points={
         'console_scripts': [
             'tensor_network=tensor_network.cli:main'
