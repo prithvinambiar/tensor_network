@@ -15,7 +15,7 @@ def initialize_network(input_count, list_of_neurons):
     # list2 = list_of_neurons + [output_count]
     list2 = list_of_neurons
 
-    def func(d): (initialize_weight(d[0], d[1]), initialize_bias(d[1]))
+    def func(d): return initialize_weight(d[0], d[1]), initialize_bias(d[1])
     return map(func, list(zip(list1, list2)))
 
 
