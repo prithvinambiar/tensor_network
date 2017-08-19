@@ -6,8 +6,6 @@
 import pytest
 
 from click.testing import CliRunner
-
-from tensor_network import tensor_network
 from tensor_network import cli
 
 
