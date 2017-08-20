@@ -52,29 +52,36 @@ class BackPropagation:
         self.model = evaluate_network(self.network, self.x)
         with tf.name_scope("cost"):
             self.cost_function = tf.reduce_mean(
-                -tf.reduce_sum((self.y * tf.log(self.model) + ((1 - self.y) * tf.log(1 - self.model))), axis=[1]))
+                -tf.reduce_sum((self.y * tf.log(self.model + 1e-10) + ((1 - self.y) * tf.log(1 - self.model + 1e-10))),
+                               axis=[1]))
 
     def __del__(self):
         self.session.close()
 
-    def setup_tensor_graph(self):
+    def train(self, train_input_data, train_output_data, iterations=10000,
+              optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05)):
         temp_dir = tempfile.gettempdir() + "/tensorflow"
         logging.info("Logging TensorFlow data to %s " % temp_dir)
         writer = tf.summary.FileWriter(temp_dir)
         writer.add_graph(self.session.graph)
+        tf.summary.scalar('cost', self.cost_function)
+        merged_summary = tf.summary.merge_all()
 
-    def train(self, train_input_data, train_output_data, iterations=10000):
-        self.setup_tensor_graph()
         self.session.run(tf.global_variables_initializer())
         with tf.name_scope("train"):
-            train_step = tf.train.GradientDescentOptimizer(0.05).minimize(self.cost_function)
+            train_step = optimiser.minimize(self.cost_function)
+
         for i in range(iterations):
-            if i % 1000 == 0:
-                print(self.session.run(self.cost_function,
-                                       feed_dict={self.x: train_input_data, self.y: train_output_data}))
-                for j in self.network:
-                    print(self.session.run(j))
+            if i % 10 == 0:
+                print("Iterations = ", i, " and Cost = ", self.session.run(self.cost_function,
+                                                                           feed_dict={self.x: train_input_data,
+                                                                                      self.y: train_output_data}))
+                # for j in self.network:
+                #     print(self.session.run(j))
+
             self.session.run(train_step, feed_dict={self.x: train_input_data, self.y: train_output_data})
+            s = self.session.run(merged_summary, feed_dict={self.x: train_input_data, self.y: train_output_data})
+            writer.add_summary(s, i)
 
     def predict(self, test_input_data):
         return self.session.run(self.model, feed_dict={self.x: test_input_data})
