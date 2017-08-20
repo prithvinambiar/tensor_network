@@ -67,9 +67,9 @@ class BackPropagation:
         tf.summary.scalar('cost', self.cost_function)
         merged_summary = tf.summary.merge_all()
 
-        self.session.run(tf.global_variables_initializer())
         with tf.name_scope("train"):
             train_step = optimiser.minimize(self.cost_function)
+        self.session.run(tf.global_variables_initializer())
 
         for i in range(iterations):
             if i % 10 == 0:
