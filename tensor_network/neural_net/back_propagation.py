@@ -59,17 +59,27 @@ class BackPropagation:
         self.session.close()
 
     def train(self, train_input_data, train_output_data, iterations=10000,
-              optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05)):
-        temp_dir = tempfile.gettempdir() + "/tensorflow"
-        logging.info("Logging TensorFlow data to %s " % temp_dir)
-        writer = tf.summary.FileWriter(temp_dir)
+              optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False):
+        tensorflow_dir = tempfile.gettempdir() + "/tensorflow"
+        log_dir = tensorflow_dir + "/log"
+        model_file = tensorflow_dir + "/model/my-model"
+        logging.info("Logging TensorFlow data to %s " % log_dir)
+        writer = tf.summary.FileWriter(log_dir)
         writer.add_graph(self.session.graph)
         tf.summary.scalar('cost', self.cost_function)
         merged_summary = tf.summary.merge_all()
 
-        with tf.name_scope("train"):
-            train_step = optimiser.minimize(self.cost_function)
-        self.session.run(tf.global_variables_initializer())
+        if import_prev_model:
+            saver = tf.train.import_meta_graph(model_file + ".meta")
+            ckpt = tf.train.get_checkpoint_state(tensorflow_dir + "/model")
+            saver.restore(self.session, ckpt.model_checkpoint_path)
+            graph = tf.get_default_graph()
+            train_step = graph.get_tensor_by_name('train_step')
+        else:
+            with tf.name_scope("train"):
+                train_step = optimiser.minimize(self.cost_function, name="train_step")
+            self.session.run(tf.global_variables_initializer())
+            saver = tf.train.Saver(max_to_keep=1)
 
         for i in range(iterations):
             if i % 10 == 0:
@@ -82,6 +92,7 @@ class BackPropagation:
             self.session.run(train_step, feed_dict={self.x: train_input_data, self.y: train_output_data})
             s = self.session.run(merged_summary, feed_dict={self.x: train_input_data, self.y: train_output_data})
             writer.add_summary(s, i)
+            saver.save(self.session, model_file)
 
     def predict(self, test_input_data):
         return self.session.run(self.model, feed_dict={self.x: test_input_data})
