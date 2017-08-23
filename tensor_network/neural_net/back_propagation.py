@@ -9,7 +9,7 @@ def initialize_weight(input_count, output_count):
 
 
 def initialize_bias(output):
-    return tf.Variable(tf.truncated_normal([output]), name='B')
+    return tf.Variable(tf.zeros([output]), name='B')
 
 
 def initialize_layer(layer_info, name='layer'):
@@ -58,8 +58,11 @@ class BackPropagation:
     def __del__(self):
         self.session.close()
 
-    def train(self, train_input_data, train_output_data, iterations=10000,
-              optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False):
+    def train(self, train_data, validation_data=(None, None), iterations=10000,
+              optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
+              total_log_count=10):
+        (train_input, train_output) = train_data
+        (validation_input, validation_output) = train_data if validation_data == (None, None) else validation_data
         tensorflow_dir = tempfile.gettempdir() + "/tensorflow"
         log_dir = tensorflow_dir + "/log"
         model_file = tensorflow_dir + "/model/my-model"
@@ -82,17 +85,18 @@ class BackPropagation:
             saver = tf.train.Saver(max_to_keep=1)
 
         for i in range(iterations):
-            if i % 10 == 0:
-                print("Iterations = ", i, " and Cost = ", self.session.run(self.cost_function,
-                                                                           feed_dict={self.x: train_input_data,
-                                                                                      self.y: train_output_data}))
+            if total_log_count != 0 and i % (iterations / total_log_count) == 0:
+                accuracy = self.validation(validation_input, validation_output)
+                cost = self.session.run(self.cost_function,
+                                        feed_dict={self.x: train_input, self.y: train_output})
+                print("Iterations = %s and Cost = %s and accuracy = %s" % (i, cost, accuracy))
                 # for j in self.network:
                 #     print(self.session.run(j))
+                s = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output})
+                writer.add_summary(s, i)
+                saver.save(self.session, model_file)
 
-            self.session.run(train_step, feed_dict={self.x: train_input_data, self.y: train_output_data})
-            s = self.session.run(merged_summary, feed_dict={self.x: train_input_data, self.y: train_output_data})
-            writer.add_summary(s, i)
-            saver.save(self.session, model_file)
+            self.session.run(train_step, feed_dict={self.x: train_input, self.y: train_output})
 
     def predict(self, test_input_data):
         return self.session.run(self.model, feed_dict={self.x: test_input_data})
