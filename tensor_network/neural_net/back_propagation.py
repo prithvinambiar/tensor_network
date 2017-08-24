@@ -60,7 +60,7 @@ class BackPropagation:
 
     def train(self, train_data, validation_data=(None, None), iterations=10000,
               optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
-              total_log_count=10):
+              log_frequency=10):
         (train_input, train_output) = train_data
         (validation_input, validation_output) = train_data if validation_data == (None, None) else validation_data
         tensorflow_dir = tempfile.gettempdir() + "/tensorflow"
@@ -71,29 +71,23 @@ class BackPropagation:
         writer.add_graph(self.session.graph)
         tf.summary.scalar('cost', self.cost_function)
         merged_summary = tf.summary.merge_all()
+        with tf.name_scope("train"):
+            train_step = optimiser.minimize(self.cost_function, name="train_step")
+        saver = tf.train.Saver(max_to_keep=1)
 
         if import_prev_model:
-            saver = tf.train.import_meta_graph(model_file + ".meta")
-            ckpt = tf.train.get_checkpoint_state(tensorflow_dir + "/model")
-            saver.restore(self.session, ckpt.model_checkpoint_path)
-            graph = tf.get_default_graph()
-            train_step = graph.get_tensor_by_name('train_step')
+            saver.restore(self.session, model_file)
         else:
-            with tf.name_scope("train"):
-                train_step = optimiser.minimize(self.cost_function, name="train_step")
             self.session.run(tf.global_variables_initializer())
-            saver = tf.train.Saver(max_to_keep=1)
 
         for i in range(iterations):
-            if total_log_count != 0 and i % (iterations / total_log_count) == 0:
+            if log_frequency != 0 and i % (iterations / log_frequency) == 0:
                 accuracy = self.validation(validation_input, validation_output)
                 cost = self.session.run(self.cost_function,
                                         feed_dict={self.x: train_input, self.y: train_output})
                 print("Iterations = %s and Cost = %s and accuracy = %s" % (i, cost, accuracy))
-                # for j in self.network:
-                #     print(self.session.run(j))
-                s = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output})
-                writer.add_summary(s, i)
+                summary = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output})
+                writer.add_summary(summary, i)
                 saver.save(self.session, model_file)
 
             self.session.run(train_step, feed_dict={self.x: train_input, self.y: train_output})
