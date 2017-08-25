@@ -58,11 +58,11 @@ class BackPropagation:
     def __del__(self):
         self.session.close()
 
-    def train(self, train_data, validation_data=(None, None), iterations=10000,
+    def train(self, train_data, validation_data=None, iterations=10000,
               optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
               log_frequency=10):
         (train_input, train_output) = train_data
-        (validation_input, validation_output) = train_data if validation_data == (None, None) else validation_data
+        (validation_input, validation_output) = train_data if validation_data is None else validation_data
         tensorflow_dir = tempfile.gettempdir() + "/tensorflow"
         log_dir = tensorflow_dir + "/log"
         model_file = tensorflow_dir + "/model/my-model"
