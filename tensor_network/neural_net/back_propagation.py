@@ -43,33 +43,41 @@ def evaluate_network(network, input_data):
     return res
 
 
+def cost_function(actual_y, predicted_y):
+    return tf.reduce_mean(
+        -tf.reduce_sum((actual_y * tf.log(predicted_y + 1e-10) + ((1 - actual_y) * tf.log(1 - predicted_y + 1e-10))),
+                       axis=[1]))
+
+
 class BackPropagation:
     def __init__(self, number_of_features, number_of_output, neurons_list):
         self.session = tf.Session()
         self.x = tf.placeholder(tf.float32, [None, number_of_features])
         self.y = tf.placeholder(tf.float32, [None, number_of_output])
+        self.validation_x = tf.placeholder(tf.float32, [None, number_of_features])
+        self.validation_y = tf.placeholder(tf.float32, [None, number_of_output])
         self.network = list(tensor_network(number_of_features, neurons_list))
         self.model = evaluate_network(self.network, self.x)
-        with tf.name_scope("cost"):
-            self.cost_function = tf.reduce_mean(
-                -tf.reduce_sum((self.y * tf.log(self.model + 1e-10) + ((1 - self.y) * tf.log(1 - self.model + 1e-10))),
-                               axis=[1]))
+        self.validation_y_pred = evaluate_network(self.network, self.validation_x)
+        self.cost_function = cost_function(self.y, self.model)
+        self.accuracy = cost_function(self.validation_y, self.validation_y_pred)
 
     def __del__(self):
         self.session.close()
 
     def train(self, train_data, validation_data=None, iterations=10000,
               optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
-              log_frequency=10):
+              frequency=10, folder=tempfile.gettempdir() + "/tensorflow"):
         (train_input, train_output) = train_data
         (validation_input, validation_output) = train_data if validation_data is None else validation_data
-        tensorflow_dir = tempfile.gettempdir() + "/tensorflow"
+        tensorflow_dir = folder
         log_dir = tensorflow_dir + "/log"
-        model_file = tensorflow_dir + "/model/my-model"
+        model_file = tensorflow_dir + "/model/model_data"
         logging.info("Logging TensorFlow data to %s " % log_dir)
         writer = tf.summary.FileWriter(log_dir)
         writer.add_graph(self.session.graph)
         tf.summary.scalar('cost', self.cost_function)
+        tf.summary.scalar('accuracy', self.accuracy)
         merged_summary = tf.summary.merge_all()
         with tf.name_scope("train"):
             train_step = optimiser.minimize(self.cost_function, name="train_step")
@@ -81,16 +89,20 @@ class BackPropagation:
             self.session.run(tf.global_variables_initializer())
 
         for i in range(iterations):
-            if log_frequency != 0 and i % (iterations / log_frequency) == 0:
+            if frequency != 0 and i % (iterations / frequency) == 0:
                 accuracy = self.validation(validation_input, validation_output)
                 cost = self.session.run(self.cost_function,
                                         feed_dict={self.x: train_input, self.y: train_output})
                 print("Iterations = %s and Cost = %s and accuracy = %s" % (i, cost, accuracy))
-                summary = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output})
+                summary = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output,
+                                                                      self.validation_x: validation_input,
+                                                                      self.validation_y: validation_output})
                 writer.add_summary(summary, i)
                 saver.save(self.session, model_file)
 
-            self.session.run(train_step, feed_dict={self.x: train_input, self.y: train_output})
+            self.session.run(train_step,
+                             feed_dict={self.x: train_input, self.y: train_output, self.validation_x: validation_input,
+                                        self.validation_y: validation_output})
 
     def predict(self, test_input_data):
         return self.session.run(self.model, feed_dict={self.x: test_input_data})
