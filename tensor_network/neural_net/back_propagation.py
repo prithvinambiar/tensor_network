@@ -63,7 +63,16 @@ class BackPropagation:
         self.accuracy = cost_function(self.validation_y, self.validation_y_pred)
 
     def __del__(self):
+        tf.reset_default_graph()
         self.session.close()
+
+    def __enter__(self):
+        self.session.__enter__()
+        return self
+
+    def __exit__(self, exec_type, exec_value, exec_tb):
+        self.session.__exit__(exec_type, exec_value, exec_tb)
+        tf.reset_default_graph()
 
     def train(self, train_data, validation_data=None, iterations=10000,
               optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
