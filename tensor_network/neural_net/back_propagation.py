@@ -44,7 +44,7 @@ def evaluate_network(network, input_data):
 
 
 def cost_function(actual_y, predicted_y, weights, beta):
-    l2_regularization = tf.nn.l2_loss(weights)
+    l2_regularization = sum(tf.nn.l2_loss(weight) for weight in weights)
     loss = log_loss(actual_y, predicted_y)
     return tf.reduce_mean(loss + beta * l2_regularization)
 
@@ -59,7 +59,7 @@ def accuracy(actual_y, predicted_y):
     return tf.reduce_mean(loss)
 
 
-def weights(network):
+def get_weights(network):
     weights = []
     for layer in network:
         weight, _ = layer
@@ -78,7 +78,7 @@ class BackPropagation:
         self.network = list(tensor_network(number_of_features, neurons_list))
         self.model = evaluate_network(self.network, self.x)
         self.validation_y_pred = evaluate_network(self.network, self.validation_x)
-        self.cost_function = cost_function(self.y, self.model, weights(self.network), self.beta)
+        self.cost_function = cost_function(self.y, self.model, get_weights(self.network), self.beta)
         self.accuracy = accuracy(self.validation_y, self.validation_y_pred)
 
     def __del__(self):
