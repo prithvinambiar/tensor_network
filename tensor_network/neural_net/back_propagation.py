@@ -43,10 +43,28 @@ def evaluate_network(network, input_data):
     return res
 
 
-def cost_function(actual_y, predicted_y):
-    return tf.reduce_mean(
-        -tf.reduce_sum((actual_y * tf.log(predicted_y + 1e-10) + ((1 - actual_y) * tf.log(1 - predicted_y + 1e-10))),
-                       axis=[1]))
+def cost_function(actual_y, predicted_y, weights, beta):
+    l2_regularization = tf.nn.l2_loss(weights)
+    loss = log_loss(actual_y, predicted_y)
+    return tf.reduce_mean(loss + beta * l2_regularization)
+
+
+def log_loss(actual_y, predicted_y):
+    return -tf.reduce_sum(
+        (actual_y * tf.log(predicted_y + 1e-10) + ((1 - actual_y) * tf.log(1 - predicted_y + 1e-10))), axis=[1])
+
+
+def accuracy(actual_y, predicted_y):
+    loss = log_loss(actual_y, predicted_y)
+    return tf.reduce_mean(loss)
+
+
+def weights(network):
+    weights = []
+    for layer in network:
+        weight, _ = layer
+        weights.append(weight)
+    return weights
 
 
 class BackPropagation:
@@ -54,16 +72,16 @@ class BackPropagation:
         self.session = tf.Session()
         self.x = tf.placeholder(tf.float32, [None, number_of_features])
         self.y = tf.placeholder(tf.float32, [None, number_of_output])
+        self.beta = tf.placeholder(tf.float32)
         self.validation_x = tf.placeholder(tf.float32, [None, number_of_features])
         self.validation_y = tf.placeholder(tf.float32, [None, number_of_output])
         self.network = list(tensor_network(number_of_features, neurons_list))
         self.model = evaluate_network(self.network, self.x)
         self.validation_y_pred = evaluate_network(self.network, self.validation_x)
-        self.cost_function = cost_function(self.y, self.model)
-        self.accuracy = cost_function(self.validation_y, self.validation_y_pred)
+        self.cost_function = cost_function(self.y, self.model, weights(self.network), self.beta)
+        self.accuracy = accuracy(self.validation_y, self.validation_y_pred)
 
     def __del__(self):
-        tf.reset_default_graph()
         self.session.close()
 
     def __enter__(self):
@@ -76,7 +94,7 @@ class BackPropagation:
 
     def train(self, train_data, validation_data=None, iterations=10000,
               optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
-              frequency=10, folder=tempfile.gettempdir() + "/tensorflow"):
+              frequency=10, folder=tempfile.gettempdir() + "/tensorflow", reg_lambda=0.0001):
         (train_input, train_output) = train_data
         (validation_input, validation_output) = train_data if validation_data is None else validation_data
         tensorflow_dir = folder
@@ -101,17 +119,18 @@ class BackPropagation:
             if frequency != 0 and i % (iterations / frequency) == 0:
                 accuracy = self.validation(validation_input, validation_output)
                 cost = self.session.run(self.cost_function,
-                                        feed_dict={self.x: train_input, self.y: train_output})
+                                        feed_dict={self.x: train_input, self.y: train_output, self.beta: reg_lambda})
                 print("Iterations = %s and Cost = %s and accuracy = %s" % (i, cost, accuracy))
                 summary = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output,
                                                                       self.validation_x: validation_input,
-                                                                      self.validation_y: validation_output})
+                                                                      self.validation_y: validation_output,
+                                                                      self.beta: reg_lambda})
                 writer.add_summary(summary, i)
                 saver.save(self.session, model_file)
 
             self.session.run(train_step,
                              feed_dict={self.x: train_input, self.y: train_output, self.validation_x: validation_input,
-                                        self.validation_y: validation_output})
+                                        self.validation_y: validation_output, self.beta: reg_lambda})
 
     def predict(self, test_input_data):
         return self.session.run(self.model, feed_dict={self.x: test_input_data})
@@ -119,5 +138,6 @@ class BackPropagation:
     def validation(self, validation_input_data, validation_output_data):
         with tf.name_scope("validation"):
             predictions = self.predict(validation_input_data)
-            return self.session.run(self.cost_function,
-                                    feed_dict={self.y: validation_output_data, self.model: predictions})
+            return self.session.run(self.accuracy,
+                                    feed_dict={self.validation_y: validation_output_data,
+                                               self.validation_y_pred: predictions})
