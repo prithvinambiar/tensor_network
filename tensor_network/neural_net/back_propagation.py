@@ -105,6 +105,7 @@ class BackPropagation:
         writer.add_graph(self.session.graph)
         tf.summary.scalar('cost', self.cost_function)
         tf.summary.scalar('accuracy', self.accuracy)
+        tf.summary.scalar('train_accuracy', self.validation(train_input, train_output))
         merged_summary = tf.summary.merge_all()
         with tf.name_scope("train"):
             train_step = optimiser.minimize(self.cost_function, name="train_step")
@@ -117,10 +118,12 @@ class BackPropagation:
 
         for i in range(iterations):
             if frequency != 0 and i % (iterations / frequency) == 0:
-                accuracy = self.validation(validation_input, validation_output)
+                validation_accuracy = self.validation(validation_input, validation_output)
+                train_accuracy = self.validation(train_input, train_output)
                 cost = self.session.run(self.cost_function,
                                         feed_dict={self.x: train_input, self.y: train_output, self.beta: reg_lambda})
-                print("Iterations = %s and Cost = %s and accuracy = %s" % (i, cost, accuracy))
+                print("Iterations = %s and Cost = %s and Train accuracy = %s and Validation accuracy = %s" % (
+                    i, cost, train_accuracy, validation_accuracy))
                 summary = self.session.run(merged_summary, feed_dict={self.x: train_input, self.y: train_output,
                                                                       self.validation_x: validation_input,
                                                                       self.validation_y: validation_output,
