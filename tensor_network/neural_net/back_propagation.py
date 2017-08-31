@@ -103,10 +103,6 @@ class BackPropagation:
         logging.info("Logging TensorFlow data to %s " % log_dir)
         writer = tf.summary.FileWriter(log_dir)
         writer.add_graph(self.session.graph)
-        tf.summary.scalar('cost', self.cost_function)
-        tf.summary.scalar('accuracy', self.accuracy)
-        tf.summary.scalar('train_accuracy', self.validation(train_input, train_output))
-        merged_summary = tf.summary.merge_all()
         with tf.name_scope("train"):
             train_step = optimiser.minimize(self.cost_function, name="train_step")
         saver = tf.train.Saver(max_to_keep=1)
@@ -115,6 +111,11 @@ class BackPropagation:
             saver.restore(self.session, model_file)
         else:
             self.session.run(tf.global_variables_initializer())
+
+        tf.summary.scalar('cost', self.cost_function)
+        tf.summary.scalar('accuracy', self.accuracy)
+        tf.summary.scalar('train_accuracy', self.validation(train_input, train_output))
+        merged_summary = tf.summary.merge_all()
 
         for i in range(iterations):
             if frequency != 0 and i % (iterations / frequency) == 0:
