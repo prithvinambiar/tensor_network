@@ -109,7 +109,7 @@ class BackPropagation:
     def train(self, train_data, validation_data=None, iterations=10000,
               optimiser=tf.train.GradientDescentOptimizer(learning_rate=0.05), import_prev_model=False,
               model_save_frequency=0, log_frequency=10, folder=tempfile.gettempdir() + "/tensorflow",
-              reg_lambda=0.0001, batch_size_pct=0.2):
+              reg_lambda=0.0000, batch_size_pct=0.2):
         (train_input, train_output) = train_data
         (validation_input, validation_output) = train_data if validation_data is None else validation_data
         tensorflow_dir = folder
